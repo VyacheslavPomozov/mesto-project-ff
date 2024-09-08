@@ -24,13 +24,12 @@ const newCardPopupCloseButton = newCardPopup.querySelector(".popup__close");
 const profileTitle = content.querySelector(".profile__title");
 const profileDescriprion = content.querySelector(".profile__description");
 
-const formElement = document.querySelector(".popup__form");
+const editProfileForm = document.forms["edit-profile"];
 const nameInput = document.querySelector(".popup__input_type_name");
 const jobInput = document.querySelector(".popup__input_type_description");
-nameInput.value = profileTitle.textContent;
-jobInput.value = profileDescriprion.textContent;
 
-const editForm = newCardPopup.querySelector(".popup__form");
+
+const newPlaceForm = document.forms["new-place"];
 const newCardName = document.querySelector(".popup__input_type_card-name");
 const newCardLink = document.querySelector(".popup__input_type_url");
 
@@ -48,34 +47,32 @@ initialCards.forEach((card) => {
 });
 
 editButton.addEventListener("click", function () {
+  nameInput.value = profileTitle.textContent;
+  jobInput.value = profileDescriprion.textContent;
   openPopup(editPopup);
-  editButton.removeEventListener("click", openPopup);
 });
 
 editPopupCloseButton.addEventListener("click", function () {
   closePopup(editPopup);
-  editPopupCloseButton.removeEventListener("click", closePopup);
 });
 
 newCardPopupCloseButton.addEventListener("click", function () {
   closePopup(newCardPopup);
-  newCardPopupCloseButton.removeEventListener("click", closePopup);
 });
 
 addNewProfileButton.addEventListener("click", function () {
   openPopup(newCardPopup);
-  addNewProfileButton.removeEventListener("click", openPopup);
 });
 
-formElement.addEventListener("submit", handleFormSubmit);
+editProfileForm.addEventListener("submit", handleEditProfile);
 
-editForm.addEventListener("submit", handleAddCard);
+newPlaceForm.addEventListener("submit", handleAddCard);
 
 popupImageCloseButton.addEventListener("click", function () {
   closePopup(popupContentImage);
 });
 
-function handleFormSubmit(evt) {
+function handleEditProfile(evt) {
   evt.preventDefault();
   const name = nameInput.value;
   const job = jobInput.value;
@@ -95,15 +92,13 @@ function handleAddCard(evt) {
     createCard(addCard, handleDeleteCard, likeCard, openBigImage, cardTemplate)
   );
   closePopup(newCardPopup);
-  editForm.reset();
+  newPlaceForm.reset();
 };
 
 function openBigImage(evt) {
   if (evt.target.classList.contains("card__image")) {
     openPopup(popupContentImage);
     popupImage.setAttribute("src", evt.target.src);
-    const description =
-      evt.currentTarget.querySelector(".card__title").textContent;
-    popupImageDescriprion.textContent = description;
+    popupImageDescriprion.textContent = evt.target.alt;
   }
 };
