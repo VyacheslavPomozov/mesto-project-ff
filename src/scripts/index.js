@@ -28,10 +28,12 @@ const placesList = content.querySelector(".places__list");
 const editButton = content.querySelector(".profile__edit-button");
 const editPopup = document.querySelector(".popup_type_edit");
 const editPopupCloseButton = editPopup.querySelector(".popup__close");
+const editPopupSubmitButton = editPopup.querySelector(".popup__button");
 
 const addNewProfileButton = content.querySelector(".profile__add-button");
 const newCardPopup = document.querySelector(".popup_type_new-card");
 const newCardPopupCloseButton = newCardPopup.querySelector(".popup__close");
+const newCardPopupSubmitButton = newCardPopup.querySelector(".popup__button");
 
 const profileTitle = content.querySelector(".profile__title");
 const profileDescriprion = content.querySelector(".profile__description");
@@ -61,15 +63,17 @@ const validationConfig = {
 const profileData = {};
 const profileImage = document.querySelector(".profile__image");
 const avatarPopup = document.querySelector(".popup_type_avatar");
-const avatarEditButton = avatarPopup.querySelector(".popup__button");
+const avatarPopupSubmitButton = avatarPopup.querySelector(".popup__button");
 const avatarCloseButton = avatarPopup.querySelector(".popup__close");
+const avatarPopupForm = document.forms.avatar;
 
-Promise.all([getUserData(), getInitialCards()]).then(
-  ([resUserData, resInitialCards]) => {
+Promise.all([getUserData(), getInitialCards()])
+  .then(([resUserData, resInitialCards]) => {
     renderUserData(resUserData);
     addInitialCards(resInitialCards);
-  }
-);
+  })
+  .catch((err) => console.log(err));
+
 // Функция загрузки данных о пользователе
 function renderUserData(UserData) {
   profileData.name = UserData.name;
@@ -101,26 +105,23 @@ function handleEditProfile(event) {
   event.preventDefault();
   const name = nameInput.value;
   const job = jobInput.value;
-  const submitButton = document.querySelector(".popup__button");
-  submitButton.textContent = "Сохранение...";
+  editPopupSubmitButton.textContent = "Сохранение...";
 
   patchProfile(name, job)
     .then((res) => {
       profileTitle.textContent = res.name;
-      console.log(res.name);
       profileDescriprion.textContent = res.about;
       closePopup(editPopup);
     })
     .catch((err) => console.log(err))
-    .finally(() => (submitButton.textContent = "Сохранить"));
+    .finally(() => (editPopupSubmitButton.textContent = "Сохранить"));
 }
 // Функция ручного добавления карточки
 function handleAddCard(event) {
   event.preventDefault();
   const name = newCardName.value;
   const link = newCardLink.value;
-  const submitButton = newPlaceForm.querySelector(".popup__button");
-  submitButton.textContent = "Сохранение...";
+  newCardPopupSubmitButton.textContent = "Сохранение...";
   const addCard = {};
   addCard.name = name;
   addCard.link = link;
@@ -139,7 +140,7 @@ function handleAddCard(event) {
       clearValidation(newPlaceForm, validationConfig);
     })
     .catch((err) => console.log(err))
-    .finally(() => (submitButton.textContent = "Сохранить"));
+    .finally(() => (newCardPopupSubmitButton.textContent = "Сохранить"));
 }
 // Функция удаления карточки с сервера
 function deleteCardInServer(event, dataCard) {
@@ -173,21 +174,26 @@ function likeCardInServer(event, dataCard, myId, likesCounter) {
 function addNewAvatar(event) {
   event.preventDefault();
   const link = document.forms.avatar.link.value;
-  const submitButton = document.forms.avatar.button;
-  submitButton.textContent = "Сохранение...";
+  avatarPopupSubmitButton.textContent = "Сохранение...";
 
-  patchAvatarInServer(link).then((res) => {
-    profileImage.setAttribute("style", `background-image: url(${res.avatar})`);
-    closePopup(avatarPopup);
-    document.forms.avatar.reset();
-    clearValidation(document.forms.avatar, validationConfig);
-  });
+  patchAvatarInServer(link)
+    .then((res) => {
+      profileImage.setAttribute(
+        "style",
+        `background-image: url(${res.avatar})`
+      );
+      closePopup(avatarPopup);
+      avatarPopupForm.reset();
+      clearValidation(avatarPopupForm, validationConfig);
+    })
+    .catch((err) => console.log(err));
 }
 // Функция открытия большого изображения карточки
 function openBigImage(evt) {
   if (evt.target.classList.contains("card__image")) {
     openPopup(popupContentImage);
     popupImage.setAttribute("src", evt.target.src);
+    popupImage.setAttribute("alt", evt.target.alt);
     popupImageDescriprion.textContent = evt.target.alt;
   }
 }
@@ -225,7 +231,7 @@ popupImageCloseButton.addEventListener("click", function () {
   closePopup(popupContentImage);
 });
 
-avatarEditButton.addEventListener("click", function (event) {
+avatarPopupSubmitButton.addEventListener("click", function (event) {
   addNewAvatar(event);
 });
 
