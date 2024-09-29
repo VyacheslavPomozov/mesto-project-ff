@@ -1,17 +1,29 @@
 "use strict";
 import "../pages/index.css";
-import { initialCards } from "/src/scripts/cards.js";
 import {
   handleDeleteCard,
   createCard,
   likeCard,
-  renderCard,
 } from "/src/components/card.js";
 import { openPopup, closePopup } from "/src/components/modal.js";
+import {
+  enableValidation,
+  clearValidation,
+} from "/src/components/validation.js";
+
+import {
+  getUserData,
+  getInitialCards,
+  deleteCardServer,
+  addLikeServer,
+  deleteLikeServer,
+  patchProfile,
+  postCardInServer,
+  patchAvatarInServer,
+} from "/src/components/api.js";
 
 const content = document.querySelector(".content");
 const placesList = content.querySelector(".places__list");
-const cardTemplate = document.querySelector("#card-template").content;
 
 const editButton = content.querySelector(".profile__edit-button");
 const editPopup = document.querySelector(".popup_type_edit");
@@ -28,7 +40,6 @@ const editProfileForm = document.forms["edit-profile"];
 const nameInput = document.querySelector(".popup__input_type_name");
 const jobInput = document.querySelector(".popup__input_type_description");
 
-
 const newPlaceForm = document.forms["new-place"];
 const newCardName = document.querySelector(".popup__input_type_card-name");
 const newCardLink = document.querySelector(".popup__input_type_url");
@@ -39,17 +50,165 @@ const popupImageDescriprion =
   popupContentImage.querySelector(".popup__caption");
 const popupImageCloseButton = popupContentImage.querySelector(".popup__close");
 
-initialCards.forEach((card) => {
-  renderCard(
-    createCard(card, handleDeleteCard, likeCard, openBigImage, cardTemplate),
-    placesList
+const validationConfig = {
+  formSelector: ".popup__form",
+  inputSelector: ".popup__input",
+  submitButtonSelector: ".popup__button",
+  inactiveButtonClass: "popup__button_disabled",
+  inputErrorClass: "popup__input_type_error",
+  errorClass: "popup__input-error_active",
+};
+const profileData = {};
+const profileImage = document.querySelector(".profile__image");
+const avatarPopup = document.querySelector(".popup_type_avatar");
+const avatarEditButton = avatarPopup.querySelector(".popup__button");
+const avatarCloseButton = avatarPopup.querySelector(".popup__close");
+
+Promise.all([getUserData(), getInitialCards()]).then(
+  ([resUserData, resInitialCards]) => {
+    renderUserData(resUserData);
+    addInitialCards(resInitialCards);
+  }
+);
+// Функция загрузки данных о пользователе
+function renderUserData(UserData) {
+  profileData.name = UserData.name;
+  profileData.about = UserData.about;
+  profileData.avatar = UserData.avatar;
+  profileData.id = UserData._id;
+  profileImage.setAttribute(
+    "style",
+    `background-image: url(${profileData.avatar})`
   );
+  profileTitle.textContent = profileData.name;
+  profileDescriprion.textContent = profileData.about;
+}
+// Функция загрузки карточек с сервера
+function addInitialCards(cardsData) {
+  Array.from(cardsData).forEach((item) => {
+    const cards = createCard(
+      item,
+      deleteCardInServer,
+      likeCardInServer,
+      openBigImage,
+      profileData.id
+    );
+    placesList.append(cards);
+  });
+}
+// Функция редактирование данных о пользователе
+function handleEditProfile(event) {
+  event.preventDefault();
+  const name = nameInput.value;
+  const job = jobInput.value;
+  const submitButton = document.querySelector(".popup__button");
+  submitButton.textContent = "Сохранение...";
+
+  patchProfile(name, job)
+    .then((res) => {
+      profileTitle.textContent = res.name;
+      console.log(res.name);
+      profileDescriprion.textContent = res.about;
+      closePopup(editPopup);
+    })
+    .catch((err) => console.log(err))
+    .finally(() => (submitButton.textContent = "Сохранить"));
+}
+// Функция ручного добавления карточки
+function handleAddCard(event) {
+  event.preventDefault();
+  const name = newCardName.value;
+  const link = newCardLink.value;
+  const submitButton = newPlaceForm.querySelector(".popup__button");
+  submitButton.textContent = "Сохранение...";
+  const addCard = {};
+  addCard.name = name;
+  addCard.link = link;
+  postCardInServer(addCard)
+    .then((res) => {
+      const newCard = createCard(
+        res,
+        deleteCardInServer,
+        likeCardInServer,
+        openBigImage,
+        profileData.id
+      );
+      placesList.prepend(newCard);
+      closePopup(newCardPopup);
+      newPlaceForm.reset();
+      clearValidation(newPlaceForm, validationConfig);
+    })
+    .catch((err) => console.log(err))
+    .finally(() => (submitButton.textContent = "Сохранить"));
+}
+// Функция удаления карточки с сервера
+function deleteCardInServer(event, dataCard) {
+  deleteCardServer(dataCard._id)
+    .then(() => {
+      handleDeleteCard(event);
+    })
+    .catch((err) => console.log(err));
+}
+// Функция постановки лайка на сервере
+function likeCardInServer(event, dataCard, myId, likesCounter) {
+  if (dataCard.likes.some((like) => like._id === myId)) {
+    deleteLikeServer(dataCard._id)
+      .then((res) => {
+        dataCard.likes = res.likes;
+        likesCounter.textContent = res.likes.length;
+        likeCard(event);
+      })
+      .catch((err) => console.log(err));
+  } else {
+    addLikeServer(dataCard._id)
+      .then((res) => {
+        dataCard.likes = res.likes;
+        likesCounter.textContent = res.likes.length;
+        likeCard(event);
+      })
+      .catch((err) => console.log(err));
+  }
+}
+// Функция добавления новой аватарки пользователя
+function addNewAvatar(event) {
+  event.preventDefault();
+  const link = document.forms.avatar.link.value;
+  const submitButton = document.forms.avatar.button;
+  submitButton.textContent = "Сохранение...";
+
+  patchAvatarInServer(link).then((res) => {
+    profileImage.setAttribute("style", `background-image: url(${res.avatar})`);
+    closePopup(avatarPopup);
+    document.forms.avatar.reset();
+    clearValidation(document.forms.avatar, validationConfig);
+  });
+}
+// Функция открытия большого изображения карточки
+function openBigImage(evt) {
+  if (evt.target.classList.contains("card__image")) {
+    openPopup(popupContentImage);
+    popupImage.setAttribute("src", evt.target.src);
+    popupImageDescriprion.textContent = evt.target.alt;
+  }
+}
+
+profileImage.addEventListener("click", function () {
+  openPopup(avatarPopup);
+});
+
+avatarCloseButton.addEventListener("click", function () {
+  closePopup(avatarPopup);
 });
 
 editButton.addEventListener("click", function () {
   nameInput.value = profileTitle.textContent;
   jobInput.value = profileDescriprion.textContent;
+  clearValidation(editProfileForm, validationConfig);
   openPopup(editPopup);
+});
+
+addNewProfileButton.addEventListener("click", function () {
+  openPopup(newCardPopup);
 });
 
 editPopupCloseButton.addEventListener("click", function () {
@@ -57,48 +216,25 @@ editPopupCloseButton.addEventListener("click", function () {
 });
 
 newCardPopupCloseButton.addEventListener("click", function () {
+  clearValidation(newPlaceForm, validationConfig);
+  newPlaceForm.reset();
   closePopup(newCardPopup);
 });
-
-addNewProfileButton.addEventListener("click", function () {
-  openPopup(newCardPopup);
-});
-
-editProfileForm.addEventListener("submit", handleEditProfile);
-
-newPlaceForm.addEventListener("submit", handleAddCard);
 
 popupImageCloseButton.addEventListener("click", function () {
   closePopup(popupContentImage);
 });
 
-function handleEditProfile(evt) {
-  evt.preventDefault();
-  const name = nameInput.value;
-  const job = jobInput.value;
-  profileTitle.textContent = name;
-  profileDescriprion.textContent = job;
-  closePopup(editPopup);
-};
+avatarEditButton.addEventListener("click", function (event) {
+  addNewAvatar(event);
+});
 
-function handleAddCard(evt) {
-  evt.preventDefault();
-  const addCard = {};
-  const name = newCardName.value;
-  const link = newCardLink.value;
-  addCard.name = name;
-  addCard.link = link;
-  placesList.prepend(
-    createCard(addCard, handleDeleteCard, likeCard, openBigImage, cardTemplate)
-  );
-  closePopup(newCardPopup);
-  newPlaceForm.reset();
-};
+editProfileForm.addEventListener("submit", function (event) {
+  handleEditProfile(event);
+});
 
-function openBigImage(evt) {
-  if (evt.target.classList.contains("card__image")) {
-    openPopup(popupContentImage);
-    popupImage.setAttribute("src", evt.target.src);
-    popupImageDescriprion.textContent = evt.target.alt;
-  }
-};
+newPlaceForm.addEventListener("submit", function (event) {
+  handleAddCard(event);
+});
+
+enableValidation(validationConfig);
